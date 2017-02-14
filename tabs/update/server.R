@@ -5,12 +5,12 @@ updateTab <- function (input, output, session) {
   
   ns <- session$ns
   
-  futuresData <- FuturesData$new()$singleton
-  ratesData <- RatesData$new()$singleton
-  
   ratesData$load()
+  fXData$load()
   
-  values <- reactiveValues(qf=NULL, fetching=FALSE, status="Ready.", button="Update all", ratesSeries=ratesData$data)
+  values <- reactiveValues(qf=NULL, fetching=FALSE, status="Ready.", 
+                           button="Update all", ratesSeries=ratesData$data,
+                           fxSeries=fXData$data)
   
   output$tickersList <- renderRHandsontable({
     DT <- NULL
@@ -33,23 +33,6 @@ updateTab <- function (input, output, session) {
         hot_col("RefNum", format="0")
     }
   })
-  
-  output$ratesList <- renderRHandsontable({
-    DT <- NULL
-    if (!is.null(input$ratesList)) {
-      DT <- setDT(hot_to_r(input$ratesList))
-      ratesData$codes <- DT
-      DT <- ratesData$codes
-    } else {
-      DT <- ratesData$codesReactive()
-    }
-    if (!is.null(DT)) {
-      rhandsontable(DT, readOnly = FALSE) %>%
-        hot_cols(columnSorting = TRUE) %>%
-        hot_col(col="lastFetch", readOnly = TRUE)
-    }
-  })
-  
   
   params <- reactive({
     p <- list( quandl_api_key = input$quandlKey)
@@ -75,7 +58,10 @@ updateTab <- function (input, output, session) {
     if(values$fetching) {
       isolate({
         if (is.null(values$qf)) {
-          values$qf <- QuandlFetcher$new(futuresData$tickers[["Quandl Code"]], ratesData$codes, params())
+          values$qf <- QuandlFetcher$new(futuresData$tickers[["Quandl Code"]], 
+                                         ratesData$codes,
+                                         fXData$codes,
+                                         params())
         }
         values$qf$fetchOne()
       })
@@ -106,12 +92,43 @@ updateTab <- function (input, output, session) {
     values$qf <- NULL
   })
   
+  output$ratesList <- renderRHandsontable({
+    DT <- NULL
+    if (!is.null(input$ratesList)) {
+      DT <- setDT(hot_to_r(input$ratesList))
+      ratesData$codes <- DT
+      DT <- ratesData$codes
+    } else {
+      DT <- ratesData$codesReactive()
+    }
+    if (!is.null(DT)) {
+      rhandsontable(DT, readOnly = FALSE) %>%
+        hot_cols(columnSorting = TRUE) %>%
+        hot_col(col="lastFetch", readOnly = TRUE)
+    }
+  })
+  
+  output$fxList <- renderRHandsontable({
+    DT <- NULL
+    if (!is.null(input$fxList)) {
+      DT <- setDT(hot_to_r(input$fxList))
+      fXData$codes <- DT
+      DT <- fXData$codes
+    } else {
+      DT <- fXData$codesReactive()
+    }
+    if (!is.null(DT)) {
+      rhandsontable(DT, readOnly = FALSE) %>%
+        hot_cols(columnSorting = TRUE) %>%
+        hot_col(col="lastFetch", readOnly = TRUE)
+    }
+  })
   
   output$ratesSeriesUI <- renderUI({
     if (!is.null(values$ratesSeries)) {
       tagList(
-        selectInput(ns("selRates"), "Select series", unique(values$ratesSeries$shortName), multiple = TRUE),
-        dygraphOutput(ns("ratesSeriesGraph"))
+        dygraphOutput(ns("ratesSeriesGraph")),
+        selectInput(ns("selRates"), "Select series", unique(values$ratesSeries$shortName), multiple = TRUE)
       )
     }
   })
@@ -124,6 +141,28 @@ updateTab <- function (input, output, session) {
         spread(shortName, Value) %>%
         dygraph() %>%
         dyRangeSelector()
+    }
+  })
+  
+  output$fxSeriesUI <- renderUI({
+    if (!is.null(values$fxSeries)) {
+      tagList(
+        dygraphOutput(ns("fxSeriesGraph")),
+        selectInput(ns("selFX"), "Select series", unique(values$fxSeries$shortName), multiple = TRUE)
+      )
+    }
+  })
+  
+  output$fxSeriesGraph <- renderDygraph({
+    if(!is.null(values$fxSeries)){
+      temp <- values$fxSeries %>%
+        filter(shortName %in% input$selFX)
+      if (dim(temp)[1]>0) {
+        temp %>%
+          spread(shortName, Value) %>%
+          dygraph() %>%
+          dyRangeSelector()
+      }
     }
   })
   

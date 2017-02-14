@@ -27,13 +27,15 @@ updateTabUI <- function (id, label = "Update") {
                           br(),
                           rHandsontableOutput(ns("tickersList"))
                  ),
-                 tabPanel("Rates - List",
+                 tabPanel("Rates",
                           br(),
+                          uiOutput(ns("ratesSeriesUI")),
                           rHandsontableOutput(ns("ratesList"))
                  ),
-                 tabPanel("Rates - Series",
+                 tabPanel("FX",
                           br(),
-                          uiOutput(ns("ratesSeriesUI"))
+                          uiOutput(ns("fxSeriesUI")),
+                          rHandsontableOutput(ns("fxList"))
                  )
                ),
                br(),br(),br()

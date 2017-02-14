@@ -18,6 +18,8 @@ futuresData <- FuturesData$new()$singleton
 futuresData$load()
 ratesData <- RatesData$new()$singleton
 ratesData$load()
+fXData <- FXData$new()$singleton
+fXData$load()
 
 
 if (dim(futuresData$tickers)[1]==0) {

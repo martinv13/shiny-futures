@@ -3,7 +3,7 @@ QuandlFetcher <- R6Class( "QuandlFetcher",
   
   public = list(
     
-    initialize = function (tickers, rates, params) {
+    initialize = function (tickers, rates, fx, params) {
       
       private$dbDBI = Db$new()$singleton$localDBI
       
@@ -12,6 +12,7 @@ QuandlFetcher <- R6Class( "QuandlFetcher",
       }
       self$tickers <- tickers
       self$rates <- rates
+      self$fx <- fx
       self$params <- params
       db.codes <- c("CME", "EUREX", "SGX", "OSE", "ASX", "MX", "ICE", "HKEX", "LIFFE")
       urls <- paste0("https://www.quandl.com/api/v3/databases/",
@@ -27,6 +28,7 @@ QuandlFetcher <- R6Class( "QuandlFetcher",
     
     fetchOne = function () {
       
+      # 1. getting the list of rates data to fetch
       if (!is.data.table(self$ratesToFetch)) {
         today <- strftime(Sys.Date(),"%Y%m%d")
         res <-  dbSendQuery(private$dbDBI, 
@@ -37,8 +39,8 @@ QuandlFetcher <- R6Class( "QuandlFetcher",
           filter(!(shortName %in% notfetch$shortName)) %>%
           mutate(toFetch = 1)
         
+      # 2. fetching next rates series
       } else if(sum(self$ratesToFetch$toFetch)>0) {
-        
         today <- strftime(Sys.Date(),"%Y%m%d")
         tofetch <- (self$ratesToFetch %>% filter(toFetch == 1))[1,]
         print(paste("fetching", tofetch$shortName))
@@ -47,14 +49,10 @@ QuandlFetcher <- R6Class( "QuandlFetcher",
                                         ".csv?api_key=",
                                         self$params$quandl_api_key), .opts=self$params$proxy),
                      stringsAsFactors = FALSE)
-        
         names(d)[1:2] <- c("Date", "Value")
-        
         d$Date <- as.Date(d$Date)
         last <- which.max(d$Date)
-
         lastValue <- ifelse(!is.na(d$Value), d$Value[last], NA)
-
         insertdata <- data.frame(
           shortName=tofetch$shortName,
           lastFetch=today,
@@ -67,8 +65,45 @@ QuandlFetcher <- R6Class( "QuandlFetcher",
         dbClearResult(res)
         self$ratesToFetch %<>% mutate(toFetch = ifelse(shortName == tofetch$shortName, 0, toFetch))
         
-
-      # fetch tickers list, if any still to fetch
+      # 3. getting the list of FX rates data to fetch
+      } else if (!is.data.table(self$fxToFetch)) {
+        today <- strftime(Sys.Date(),"%Y%m%d")
+        res <-  dbSendQuery(private$dbDBI, 
+                            paste0("select shortName, lastFetch from fx_data where lastFetch='", today, "'"))
+        notfetch <- fetch(res, n=-1)
+        dbClearResult(res)
+        self$fxToFetch <- self$fx %>%
+          filter(!(shortName %in% notfetch$shortName)) %>%
+          mutate(toFetch = 1)
+        
+      # 4. fetching next FX rates series
+      } else if(sum(self$fxToFetch$toFetch)>0) {
+        today <- strftime(Sys.Date(),"%Y%m%d")
+        tofetch <- (self$fxToFetch %>% filter(toFetch == 1))[1,]
+        print(paste("fetching", tofetch$shortName))
+        d<- read.csv(text=getURI(paste0("https://www.quandl.com/api/v3/datasets/",
+                                        tofetch[["Quandl Code"]],
+                                        ".csv?api_key=",
+                                        self$params$quandl_api_key), .opts=self$params$proxy),
+                     stringsAsFactors = FALSE)
+        names(d)[1:2] <- c("Date", "Value")
+        d$Date <- as.Date(d$Date)
+        last <- which.max(d$Date)
+        lastValue <- ifelse(!is.na(d$Value), d$Value[last], NA)
+        insertdata <- data.frame(
+          shortName=tofetch$shortName,
+          lastFetch=today,
+          "data"=I(list(serialize(d, NULL))),
+          stringsAsFactors = FALSE
+        )
+        res <- dbSendQuery(private$dbDBI, paste0("delete from fx_data where shortName=\"",tofetch$shortName,"\""))
+        dbClearResult(res)
+        res <- dbSendPreparedQuery(private$dbDBI, "insert into fx_data values(?,?,?)", bind.data=insertdata)
+        dbClearResult(res)
+        self$fxToFetch %<>% mutate(toFetch = ifelse(shortName == tofetch$shortName, 0, toFetch))
+        
+        
+      # 5. fetch next tickers list, if any still to fetch
       } else if (length(self$urls)>0) {
         self$status <- "Fetching contracts lists"
         e <- names(self$urls)[1]
@@ -89,7 +124,8 @@ QuandlFetcher <- R6Class( "QuandlFetcher",
         colnames(codesu) <- c("Code", "Name")
         self$db.codes[[e]] <- codesu
         
-      # setup contracts fetching 
+        
+      # 6. setup individual contracts fetching 
       } else if (!is.data.table(self$toFetch)) {
         print("preparing fetch")
         self$status <- "Fetching contracts"
@@ -120,7 +156,8 @@ QuandlFetcher <- R6Class( "QuandlFetcher",
           filter(!(Code %in% notfetch$completeCode)) %>%
           mutate(toFetch = 1)
 
-      # fetch the next contract
+      
+      # 7. fetch the next contract
       } else {
         if (sum(self$toFetch$toFetch)>0) {
           today <- strftime(Sys.Date(),"%Y%m%d")
@@ -179,8 +216,10 @@ QuandlFetcher <- R6Class( "QuandlFetcher",
     db.codes = list(),
     toFetch = FALSE,
     ratesToFetch = FALSE,
+    fxToFetch = FALSE,
     tickers = list(),
     rates = list(),
+    fx = list(),
     params = list(),
     status = "Ready."
   ),

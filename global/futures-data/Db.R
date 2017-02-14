@@ -41,6 +41,16 @@ Db <- R6Class("Db",
         dbClearResult(res)
       }
       
+      if (!dbExistsTable(self$portableDBI, "fx")) {
+        res <- dbSendQuery(self$portableDBI, "CREATE TABLE fx (shortName text primary key, Name TEXT, \"Quandl Code\" TEXT, codeFrom TEXT, codeTo TEXT)")
+        dbClearResult(res)
+      }
+      
+      if (!dbExistsTable(self$localDBI, "fx_data")) {
+        res <- dbSendQuery(self$localDBI, "CREATE TABLE fx_data(shortName text, lastFetch text, data blob)")
+        dbClearResult(res)
+      }
+      
       if (!dbExistsTable(self$localDBI, "keyval")) {
         res <- dbSendQuery(self$localDBI, "CREATE TABLE keyval (key TEXT PRIMARY KEY, value TEXT)")
         dbClearResult(res)
