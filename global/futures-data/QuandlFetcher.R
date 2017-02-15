@@ -125,6 +125,7 @@ QuandlFetcher <- R6Class( "QuandlFetcher",
           mutate(Margin = pmax(mg1, mg2, mg3, mg4, na.rm=TRUE)) %>%
           select(`IB Ticker`, Name, Margin, Currency, Exchange)
         fwrite(tables, "local/margins.csv", sep=";", dec=",")
+        self$margins <- tables
         
         
       # 6. fetch next tickers list, if any still to fetch
@@ -242,6 +243,7 @@ QuandlFetcher <- R6Class( "QuandlFetcher",
     tickers = list(),
     rates = list(),
     fx = list(),
+    margins = NULL,
     params = list(),
     status = "Ready."
   ),

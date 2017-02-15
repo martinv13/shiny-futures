@@ -7,8 +7,4 @@ shinyServer(function(input, output, session) {
   callModule(exploreTab, "exploreTab")
   callModule(backtestTab, "backtestTab")
 
-<<<<<<< HEAD
-=======
-    
->>>>>>> e446b9e8ef27f0408916be2c11693fd9caee5db5
 })

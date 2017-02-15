@@ -407,46 +407,46 @@ Strategy <- R6Class("Strategy",
         ratesData <- RatesData$new()$singleton
         
         if (country == "US") {
-          data <- ratesData$data %>% 
-            filter(shortName %in% c("US3M", "US2Y", "US5Y", "US10Y")) %>%
-            spread(shortName, Value) %>%
-            full_join(data.table(Date=dates-1), by="Date") %>%
-            arrange(Date) %>%
-            fill(US3M, US2Y, US5Y, US10Y) %>%
-            mutate(Date = Date+1) %>%
-            filter(Date %in% dates) %>%
-            filter(!is.na(US3M))
-          
-          data %<>% 
-            mutate(finRate = US3M) %>%
-            bind_cols(
-            apply( data %>% select(US3M,US2Y,US5Y,US10Y), 1, function(r){
-              fun <- splinefun(c(0.25,2,5,10), r, method="monoH.FC")
-              c(fun(maturity-1/12), fun(maturity))
-            }) %>% t %>% data.table() %>% setNames(c("nextPeriodRate", "presentRate")))
+          codes <- c("US3M", "US2Y", "US5Y", "US10Y")
+          terms <- c(0.25,2,5,10)
           
         } else if (country == "DE") {
-          data <- ratesData$data %>% 
-            filter(shortName %in% c("DE6M", "DE2Y", "DE5Y", "DE10Y")) %>%
-            spread(shortName, Value) %>%
-            full_join(data.table(Date=dates-1), by="Date") %>%
-            arrange(Date) %>%
-            fill(DE6M, DE2Y, DE5Y, DE10Y) %>%
-            mutate(Date = Date+1) %>%
-            filter(Date %in% dates) %>%
-            filter(!is.na(DE6M))
-          
-          data %<>% 
-            mutate(finRate = DE6M) %>%
-            bind_cols(
-            apply( data %>% select(DE6M, DE2Y, DE5Y, DE10Y), 1, function(r){
-              fun <- splinefun(c(0.5,2,5,10), r, method="monoH.FC")
+          codes <- c("DE6M", "DE2Y", "DE5Y", "DE10Y")
+          terms <- c(0.5,2,5,10)
+        
+        } else if (country == "CA") {
+          codes <- c("CA3M", "CA7Y", "CA10Y")
+          terms <- c(0.25,7,10)
+        
+        } else if (country == "JP") {
+          codes <- c("JP1Y", "JP2Y", "JP7Y", "JP10Y")
+          terms <- c(1,2,7,10)
+        } else {stop("error in carryR: country not found")}
+      
+        
+        DT <- ratesData$data
+        
+        DT %<>% .[shortName %in% codes,] %>%
+          spread(shortName, Value) %>%
+          full_join(data.table(Date=dates-1), by="Date") %>%
+          arrange(Date) %>%
+          fill(-Date) %>%
+          mutate(Date = Date+1) %>%
+          filter(Date %in% dates) %>%
+          .[!is.na((codes[1])), c("Date",codes), with=FALSE]
+        
+        expr <- parse(text = paste0("finRate:=",codes[1]))
+        
+        DT %<>% .[,eval(expr)] 
+        
+        DT %<>%
+          bind_cols(
+            apply( DT %>% select(-Date, -finRate), 1, function(r){
+              fun <- splinefun(terms, r, method="monoH.FC")
               c(fun(maturity-1/12), fun(maturity))
             }) %>% t %>% data.table() %>% setNames(c("nextPeriodRate", "presentRate")))
-        
-        }
           
-        data %>% 
+        DT %>% 
           mutate(
             capitalGain = exp(-presentRate/100*(maturity-1/12))-
               presentRate/nextPeriodRate*(exp(-presentRate/100*(maturity-1/12))-1)-1,
@@ -458,23 +458,6 @@ Strategy <- R6Class("Strategy",
           mutate(Position = pmax(-1,pmin(1,Position*gain))) %>%
           select(Date, Position) %>% data.table()
         
-        # carr <- ratesData$data %>%
-        #   filter(shortTerm == shortName) %>%
-        #   mutate(st = Value/100) %>%
-        #   full_join(ratesData$data %>%
-        #               filter(longTerm == shortName) %>%
-        #               transmute(Date=Date,
-        #                         lt = Value/100), by="Date") %>%
-        #   mutate(carry = lt-st) %>%
-        #   full_join(data.table(Date=dates-1), by="Date") %>%
-        #   arrange(Date) %>%
-        #   fill(carry) %>%
-        #   mutate(Date = Date+1) %>%
-        #   filter(Date %in% dates) %>%
-        #   mutate(Position = ifelse(is.na(carry),0,carry)) %>%
-        #   mutate(Position = pmax(-1,pmin(1,Position*gain))) %>%
-        #   select(Date, Position) %>% data.table()
-        # carr
       }
       
       
