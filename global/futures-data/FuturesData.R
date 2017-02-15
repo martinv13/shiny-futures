@@ -313,7 +313,11 @@ FuturesData <- R6Class("FuturesData",
     fetchTickers = function() {
       tickers_db <- tbl(private$db$portableDPL, "tickers")
       contracts_db <- tbl(private$db$localDPL, "contracts")
+
       if (!is.null(tickers_db) && !is.null(contracts_db)) {
+        
+        fXData <- FXData$new()$singleton
+        fXData$load()
         
         fetch_data <- contracts_db %>% 
           select(genericCode, expDate, lastPrice, lastFetch) %>%
@@ -331,17 +335,25 @@ FuturesData <- R6Class("FuturesData",
           collect() %>% data.table() %>%
           mutate(genericCode = `Quandl Code`) %>%
           left_join(fetch_data, by="genericCode") %>%
-          select(-genericCode)
+          select(-genericCode) %>%
+          left_join(fXData$data%>%group_by(shortName)%>%
+                      filter(Date==max(Date))%>%mutate(Currency=codeTo), by="Currency") %>%
+          mutate(Value = ifelse(Currency=="EUR",1,Value)) %>%
+          mutate(sizeEUR = Multiplier*lastPrice/Value)
         
-        chg <- data.table(
-          symbol = c("EUR", "AUD", "CAD", "JPY", "GBP"),
-          "IB Ticker" = c("M6E", "M6A", "MCD", "MJY", "M6B")
-        ) %>% left_join(temp %>% select(`IB Ticker`, lastPrice), by="IB Ticker")
-        chg <- c(chg$lastPrice %>% setNames(chg$symbol), USD=1)
+        if(file.exists("local/margins.csv")) {
+          marginData <- fread("local/margins.csv", dec=",", sep=";")%>%
+            transmute(`IB Ticker`=`IB Ticker`,ibMargin=Margin)
+          temp <- marginData[temp, on="IB Ticker"] %>%
+            distinct(`IB Ticker`, .keep_all=TRUE) %>%
+            mutate(ibMargin = as.numeric(ibMargin)/lastPrice/Multiplier)
+        } else {
+          temp %<>% mutate(ibMargin=NA)
+        }
+        
+        temp %<>%
+          select(Name,Type,`IB Ticker`,`Quandl Code`,Multiplier,Currency,Margin,ibMargin,RefNum,lastPrice,sizeEUR,start,nbContracts,lastFetch)
 
-        temp %<>% mutate(sizeEUR = Multiplier*lastPrice*chg[Currency]/chg["EUR"]) %>%
-          select(Name,Type,`IB Ticker`,`Quandl Code`,Multiplier,Currency,Margin,RefNum,lastPrice,sizeEUR,start,nbContracts,lastFetch)
-        
         private$reactives$tickers <- temp %>% arrange(Type, Name)
       }
     },

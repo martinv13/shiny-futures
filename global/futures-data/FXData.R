@@ -42,14 +42,12 @@ FXData <- R6Class("FXData",
       })
       names(extr.data) <- rates_data$shortName
       
-      self$data <- extr.data %>% bind_rows(.id = "shortName") 
+      self$data <- extr.data %>% bind_rows(.id = "shortName")  %>%
+        left_join(self$codes %>% select(shortName,codeFrom,codeTo), by="shortName")
       
       NULL
     },
-    
-
-    
-    
+  
     # store contracts data
     data = NULL
   ),

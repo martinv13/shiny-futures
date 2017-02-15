@@ -4,7 +4,7 @@ QuandlFetcher <- R6Class( "QuandlFetcher",
   public = list(
     
     initialize = function (tickers, rates, fx, params) {
-      
+
       private$dbDBI = Db$new()$singleton$localDBI
       
       if (missing(params) || is.null(params$quandl_api_key)) {
@@ -102,8 +102,32 @@ QuandlFetcher <- R6Class( "QuandlFetcher",
         dbClearResult(res)
         self$fxToFetch %<>% mutate(toFetch = ifelse(shortName == tofetch$shortName, 0, toFetch))
         
+      # 5. fetch margins data
+      } else if (is.null(self$margins)) {
+        url <- "https://www.interactivebrokers.com/en/index.php?f=marginnew&p=fut"
+        temp <- "local/margins.html"
+        if (!file.exists(temp) || !file.info(temp)$mtime>today()) {
+          download.file(url, temp, mode="wb")
+        }
+        html<-readChar(temp, nchars = file.info(temp)$size)
+        tables <- readHTMLTable(html)
+        tables %<>% lapply(function(tb) {
+            if (!is.null(tb$Exchange)) {
+              tb %>% data.table()
+            }
+          }) %>% bind_rows() %>%
+          mutate(`IB Ticker` = Underlying,
+                 Name = `Product description`,
+                 mg1 = as.numeric(`Intraday Initial 1`),
+                 mg2 = as.numeric(`Intraday Maintenance 1`),
+                 mg3 = as.numeric(`Overnight Initial`),
+                 mg4 = as.numeric(`Overnight Maintenance`)) %>%
+          mutate(Margin = pmax(mg1, mg2, mg3, mg4, na.rm=TRUE)) %>%
+          select(`IB Ticker`, Name, Margin, Currency, Exchange)
+        fwrite(tables, "local/margins.csv", sep=";", dec=",")
         
-      # 5. fetch next tickers list, if any still to fetch
+        
+      # 6. fetch next tickers list, if any still to fetch
       } else if (length(self$urls)>0) {
         self$status <- "Fetching contracts lists"
         e <- names(self$urls)[1]
@@ -124,8 +148,7 @@ QuandlFetcher <- R6Class( "QuandlFetcher",
         colnames(codesu) <- c("Code", "Name")
         self$db.codes[[e]] <- codesu
         
-        
-      # 6. setup individual contracts fetching 
+      # 7. setup individual contracts fetching 
       } else if (!is.data.table(self$toFetch)) {
         print("preparing fetch")
         self$status <- "Fetching contracts"
@@ -156,8 +179,7 @@ QuandlFetcher <- R6Class( "QuandlFetcher",
           filter(!(Code %in% notfetch$completeCode)) %>%
           mutate(toFetch = 1)
 
-      
-      # 7. fetch the next contract
+      # 8. fetch the next contract
       } else {
         if (sum(self$toFetch$toFetch)>0) {
           today <- strftime(Sys.Date(),"%Y%m%d")

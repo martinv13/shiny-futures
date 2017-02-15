@@ -11,7 +11,7 @@ updateTab <- function (input, output, session) {
   values <- reactiveValues(qf=NULL, fetching=FALSE, status="Ready.", 
                            button="Update all", ratesSeries=ratesData$data,
                            fxSeries=fXData$data)
-  
+
   output$tickersList <- renderRHandsontable({
     DT <- NULL
     if (!is.null(input$tickersList)) {
@@ -27,9 +27,9 @@ updateTab <- function (input, output, session) {
         hot_col(col="nbContracts", readOnly = TRUE) %>%
         hot_col(col="lastFetch", readOnly = TRUE) %>%
         hot_col(col="lastPrice", readOnly = TRUE, format = "0.00") %>%
-        hot_col(col="start", readOnly = TRUE) %>%
+        hot_col(col=c("start", "ibMargin"), readOnly = TRUE) %>%
         hot_col("sizeEUR", readOnly = TRUE, format="0,0") %>%
-        hot_col("Margin", format="0%") %>%
+        hot_col(c("Margin", "ibMargin"), format="0%") %>%
         hot_col("RefNum", format="0")
     }
   })
@@ -123,7 +123,7 @@ updateTab <- function (input, output, session) {
         hot_col(col="lastFetch", readOnly = TRUE)
     }
   })
-  
+
   output$ratesSeriesUI <- renderUI({
     if (!is.null(values$ratesSeries)) {
       tagList(
@@ -158,7 +158,7 @@ updateTab <- function (input, output, session) {
       temp <- values$fxSeries %>%
         filter(shortName %in% input$selFX)
       if (dim(temp)[1]>0) {
-        temp %>%
+        temp %>% select(Date, shortName, Value) %>%
           spread(shortName, Value) %>%
           dygraph() %>%
           dyRangeSelector()
