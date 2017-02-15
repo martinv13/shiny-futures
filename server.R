@@ -6,6 +6,5 @@ shinyServer(function(input, output, session) {
   callModule(overviewTab, "overviewTab")
   callModule(exploreTab, "exploreTab")
   callModule(backtestTab, "backtestTab")
-#  session$onSessionEnded(stopApp)
-    
+
 })

@@ -18,6 +18,7 @@ dependencies <- c(
   "shiny",
   "shinythemes",
   "tidyr",
+  "XML",
   "xts"
   )
 
