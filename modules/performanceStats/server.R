@@ -38,18 +38,28 @@ performanceStats <- function (input, output, session, seriesData=NULL, selRange=
     }
   })
   
-  output$statistics <- renderTable({
+  output$statistics <- renderRHandsontable({
     if (!is.null(rv$series)) {
       perfCalc$series <- rv$series
       perfCalc$range <- rv$range
       perfCalc$metrics <- input$options
       perfCalc$retOption <- input$returnsType
-      perfCalc$results
+      tb <- rhandsontable(perfCalc$results)
+      if ("correl" %in% input$options) {
+        tb %<>% hot_cols(renderer = "
+           function (instance, td, row, col, prop, value, cellProperties) {
+                         
+                         if (row > 8 && col > 0) {
+                         td.style.background = chroma.scale([\"forestgreen\",\"white\",\"red\"])((parseFloat(value)+1)/2).hex();
+                         }
+      }")
+      }
+      tb
     } else {
       NULL
     }
   })
-  
+ # Handsontable.renderers.NumericRenderer.apply(this, arguments);
   output$main <- renderUI({
     if (is.null(rv$series)) {
       tags$p("No data selected")
@@ -57,11 +67,10 @@ performanceStats <- function (input, output, session, seriesData=NULL, selRange=
       tagList(
         textOutput(ns("rangeOutput")),
         radioButtons(ns("returnsType"), NULL, 
-                     choices=c("daily returns"="daily", 
-                               "10-day rolling returns"="rolling", 
+                     choices=c("daily returns"="daily",
                                "period returns"="period"), inline=TRUE),
         tags$div(style = "max-height:82vh;overflow-y:auto;",
-                 tableOutput(ns("statistics"))),
+                 rHandsontableOutput(ns("statistics"))),
         checkboxGroupInput(ns("options"), NULL,
                            choices = c("Compute correlations"="correl", "Compute annual returns"="annual"),
                            inline = TRUE))

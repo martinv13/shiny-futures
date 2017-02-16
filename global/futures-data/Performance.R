@@ -1,4 +1,4 @@
-
+tempStat <<- NULL
 # class used to compute performance analytics
 
 Performance <- R6Class("Performance",
@@ -99,6 +99,34 @@ Performance <- R6Class("Performance",
               spread(Portfolio, Value) %>%
               arrange(Metric) %>%
               mutate(Order=9+row_number(Metric)))
+        }
+        
+        tempStat <<- series
+        
+        if ("correl" %in% self$metrics) {
+          dataCorrel <- series %>%
+            ungroup() %>%
+            arrange(Date) %>%
+            fill(-Date) %>%
+            gather(name, Value, -Date, -period) %>%
+            filter(!is.na(Value)) %>%
+            group_by(name) %>%
+            arrange(Date) %>%
+            mutate(rollReturns = c(rep(NA,10),exp(diff(log(Value), lag=10))-1)) %>%
+            filter(!is.na(rollReturns)) %>%
+            select(-Value) %>%
+            spread(name, rollReturns) %>%
+            select(-Date,-period)
+          
+          corr <- cor(dataCorrel, use="complete.obs")
+          dt <- data.table(corr) %>%
+            sapply(function (x){sprintf("%1.2f", x)}, USE.NAMES=TRUE) %>%
+            data.table() %>%
+            mutate(Metric = row.names(corr)) %>%
+            mutate(Order = max(pstats$Order)+seq_along(Metric))
+          
+
+          pstats %<>% bind_rows(dt)
         }
         
         pstats %>%

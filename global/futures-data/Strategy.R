@@ -433,7 +433,7 @@ Strategy <- R6Class("Strategy",
           fill(-Date) %>%
           mutate(Date = Date+1) %>%
           filter(Date %in% dates) %>%
-          .[!is.na((codes[1])), c("Date",codes), with=FALSE]
+          .[eval(parse(text=paste0("!is.na(",codes[1],")"))), c("Date",codes), with=FALSE]
         
         expr <- parse(text = paste0("finRate:=",codes[1]))
         

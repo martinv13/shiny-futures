@@ -132,9 +132,9 @@ Portfolios <- R6Class("Portfolios",
         }) %>%
           bind_rows()
       }
-
+      
       if (dim(temp)[1]>0) {
-        temp %>% 
+      tst<-  temp[,`:=`(period=min(period, na.rm=TRUE)),by="Date"] %>% 
           select(Date, period, series, Value) %>%
           spread(series, Value)
       } else {
@@ -180,7 +180,6 @@ Portfolios <- R6Class("Portfolios",
           maxDate = as.Date(numeric()))
       }
     }
-    
   ),
   
   private = list(
