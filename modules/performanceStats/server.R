@@ -49,7 +49,7 @@ performanceStats <- function (input, output, session, seriesData=NULL, selRange=
         tb %<>% hot_cols(renderer = "
            function (instance, td, row, col, prop, value, cellProperties) {
                          
-                         if (row > 8 && col > 0) {
+                         if (row > 9 && col > 0) {
                          td.style.background = chroma.scale([\"forestgreen\",\"white\",\"red\"])((parseFloat(value)+1)/2).hex();
                          }
       }")

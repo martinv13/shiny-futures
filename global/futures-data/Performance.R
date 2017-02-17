@@ -118,15 +118,33 @@ Performance <- R6Class("Performance",
             spread(name, rollReturns) %>%
             select(-Date,-period)
           
+          covv <- cov(dataCorrel, use="complete.obs")
+          n <- dim(covv)[1]
+          o <- nlminb(rep(1,n-1),
+                      function(x){
+                        x <- c(1, x)
+                        x <- x/mean(x)
+                        rc <- x*(covv %*% x)
+                        sum((rc-mean(rc))^2)
+                      },
+                      lower = rep(0, n-1),
+                      control=list(iter.max=1000,
+                                   eval.max=2000))
+          print(o)
+          erc <- c(1,o$par)
+          erc <- as.list(sprintf("%1.2f", erc/mean(erc)))
+          names(erc) <- rownames(covv)
+          erc$Metric <- "ERC Weight"
+          erc$Order <- max(pstats$Order)+1
+          
           corr <- cor(dataCorrel, use="complete.obs")
           dt <- data.table(corr) %>%
             sapply(function (x){sprintf("%1.2f", x)}, USE.NAMES=TRUE) %>%
             data.table() %>%
             mutate(Metric = row.names(corr)) %>%
-            mutate(Order = max(pstats$Order)+seq_along(Metric))
+            mutate(Order = max(pstats$Order)+seq_along(Metric)+1)
           
-
-          pstats %<>% bind_rows(dt)
+          pstats %<>% bind_rows(as.data.table(erc)) %>% bind_rows(dt) 
         }
         
         pstats %>%
