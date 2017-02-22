@@ -2,7 +2,7 @@
 # remove null elements in a list 
 remove.nulls <- function(l){
   if (is.list(l)) {
-    rem <- (1:length(l))[unlist(lapply(l, is.null))]
+    rem <- seq_along(l)[unlist(lapply(l, is.null))]
     if (length(rem)>0){
       l[-rem]     
     } else {
@@ -103,8 +103,9 @@ ifNA <- function (test, repl) {
   if (is.na(test)) repl else test
 }
 
-
-
-
+# fill na value with last non-NA value
+fill.na <- function(x) {
+  x[cummax(c(1, tail((!is.na(x))*seq_along(x), -1)))]
+}
 
 

@@ -185,7 +185,8 @@ Contract <- R6Class("Contract",
           .[order(Date), Value := exp(cumsum(logReturns))] %>%
           .[order(Date),`:=`(Value = Value*last(Settle)/last(Value),
                              Position = 1)] %>%
-          .[,.(Date, period, completeCode, expDate, Position, Value, logReturns)]
+          .[,.(Date, period, completeCode, expDate, Position, Value, logReturns)] %>%
+          .[order(Date)]
 
         #         b1<- cont %>% 
         #   ungroup() %>%

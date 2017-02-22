@@ -327,6 +327,51 @@ Portfolio <- R6Class("Portfolio",
         
     },
     
+    # backtest portfolio - daily values
+    dailyBacktest_int2 = function () {
+      
+      source <- private$source_p
+      pos <- private$positions_p
+      
+      # daily portfolio returns
+      dailyReturns <- source %>% select(-period) %>%
+        left_join(pos %>% select(genericCode, Date, period), by=c("Date", "genericCode"))
+
+      dailyReturns <- dailyReturns[order(genericCode,Date), period := fill.na(period), by=genericCode][!is.na(period)]
+      
+      dailyReturns %<>%
+        left_join(pos %>% select(netPosition, lev, completeCode, period),
+                  by=c("completeCode", "period")) %>%
+        filter(!is.na(netPosition)) %>%
+        
+        group_by(completeCode, period) %>%
+        arrange(Date) %>%
+        mutate(pnl = exp(cumsum(logReturns))-1) %>%
+        
+        group_by(completeCode, period) %>%
+        arrange(Date) %>%
+        mutate(pnl = diff(c(0,pnl))) %>%
+        
+        group_by(Date) %>%
+        summarise(period = first(period),
+                  pnl = sum(pnl*netPosition*lev)) %>%
+        
+        group_by(period) %>%
+        arrange(Date) %>%
+        mutate(pnl = cumsum(pnl)) %>%
+        
+        group_by(period) %>%
+        arrange(Date) %>%
+        mutate(logReturns = diff(c(0, log(pnl+1)))) %>%
+        
+        ungroup() %>%
+        arrange(Date) %>%
+        mutate(Value = exp(cumsum(logReturns)))
+      
+      private$series_p <- dailyReturns %>% mutate(Returns=exp(logReturns)-1)
+      
+    },
+    
     periodBacktest_int = function() {
       
       source <- private$source_p

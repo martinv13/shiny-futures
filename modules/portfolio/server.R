@@ -38,8 +38,13 @@ portfolio <- function (input, output, session, p, portfolios, afterUpdate, after
   observe({
     if (!is.null(input$strats)) {
       if (initStrat) {
-        p$strategies <- hot_to_r(input$strats)
-        values$strats <- p$strategies
+        newStrats <- hot_to_r(input$strats)
+        p$strategies <- newStrats
+        newStrats[is.na(Strategy),Strategy:="long"]
+        newStrats[is.na(Weight),Weight:=1]
+        values$strats <- p$strategies[newStrats[,.(Code, Strategy, Weight)],
+                                      on=c("Code","Strategy","Weight"),
+                                      mult="first"]
         values$assets <- p$assets
         values$classes <- p$assetsClasses
       } else {

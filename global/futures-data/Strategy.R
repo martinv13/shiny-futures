@@ -458,38 +458,42 @@ Strategy <- R6Class("Strategy",
           mutate(Position = pmax(-1,pmin(1,Position*gain))) %>%
           select(Date, Position) %>% data.table()
         
+      },
+      
+      
+      # "value" position
+      "value" = function (genericCode, dates, window=6, gain=1, contract=1){
+
+        window %<>% ifNotNumeric(6)
+        contract %<>% ifNotNumeric(1)
+        gain %<>% ifNotNumeric(1)
+        
+
+        series <- Contract$new(genericCode)$monthlyRoll(contractNumber = contract)$series
+
+        pos <- rep(0, length(dates))
+
+        wd <- round(window*365.25)
+
+        s <- match(TRUE, dates > series$Date[1] + wd)
+        l <- length(dates)
+
+        if (!is.na(s) && l>=s) {
+          for (i in s:l){
+            sel <- (dates[i]-wd)<series$Date & series$Date<dates[i]
+            if (sum(sel)>0) {
+              mnw <- mean(series$Value[sel], na.rm = TRUE)
+              sdw <- sd(series$logReturns[sel], na.rm = TRUE)
+              pos[i] <- max(-1,min(1,gain*(1-series$Value[sel][sum(sel)]/mnw)/
+                exp(sdw*window)))
+            }
+          }
+        }
+        data.table(
+          Date = dates,
+          Position = pos)
       }
       
-      
-      # # "value" position
-      # "value" = function (genericCode, dates, window=6, contract=1){
-      #   
-      #   window %<>% ifNotNumeric(6)
-      #   contract %<>% ifNotNumeric(1)
-      #   
-      #   series <- Contract$new(genericCode)$monthlyRoll(contractNumber = contract)$series
-      #   
-      #   pos <- rep(0, length(dates))
-      #   
-      #   wd <- round(window*365.25)
-      #   
-      #   s <- match(TRUE, dates > series$Date[1] + wd)
-      #   l <- length(dates)
-      #   
-      #   if (l>=s) {
-      #     for (i in s:l){
-      #       sel <- (dates[i]-wd)<series$Date & series$Date<dates[i]
-      #       if (sum(sel)>0) {
-      #         mxw <- max(series$Value[sel])
-      #         mnw <- min(series$Value[sel])
-      #         pos[i] <- ifelse(mxw>mnw,(mxw-series$Value[sel][sum(sel)])/(mxw-mnw),0)*2-1
-      #       }
-      #     }
-      #   }
-      #   data.table(
-      #     Date = dates,
-      #     Position = pos)
-      # },
       # 
       # # skew
       # "skew" =  function (genericCode, dates, window=30, gain=.1, contract=1){
