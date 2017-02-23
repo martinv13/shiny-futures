@@ -468,7 +468,6 @@ Strategy <- R6Class("Strategy",
         contract %<>% ifNotNumeric(1)
         gain %<>% ifNotNumeric(1)
         
-
         series <- Contract$new(genericCode)$monthlyRoll(contractNumber = contract)$series
 
         pos <- rep(0, length(dates))
@@ -483,9 +482,8 @@ Strategy <- R6Class("Strategy",
             sel <- (dates[i]-wd)<series$Date & series$Date<dates[i]
             if (sum(sel)>0) {
               mnw <- mean(series$Value[sel], na.rm = TRUE)
-              sdw <- sd(series$logReturns[sel], na.rm = TRUE)
-              pos[i] <- max(-1,min(1,gain*(1-series$Value[sel][sum(sel)]/mnw)/
-                exp(sdw*window)))
+              sdw <- sd(exp(series$logReturns[sel])-1)*sqrt(252)
+              pos[i] <- max(-1,min(1,gain*(1-series$Value[sel][sum(sel)]/mnw)/sdw))
             }
           }
         }
