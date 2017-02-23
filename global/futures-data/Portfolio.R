@@ -167,52 +167,82 @@ Portfolio <- R6Class("Portfolio",
       pos <- strats %>% 
         rowwise() %>% 
         do({
+          ## progress bar
           if(!is.null(prPos)) prPos(progress/totalStrats)
           progress <<- progress+1
-          if (sum(unlist(lapply(., is.null)),unlist(lapply(., is.na)))>0) {
-            data.table("Date"=as.Date(character()), "period"=integer(), 
-                       "genericCode"=character(), "completeCode"=character(), 
-                       "expDate"=as.Date(character()), "contractN"=numeric(), 
-                       "Position"=double(), "maxDate"=as.Date(character(0)))
+          ##
+          
+          row <- as.data.table(.)
+          
+          if (sum(unlist(lapply(row, is.null)),unlist(lapply(row, is.na)))>0) {
+            bind_cols(row[0,],
+                      data.table("Date"=as.Date(character()), "period"=integer(),
+                                 "completeCode"=character(), "expDate"=as.Date(character()),
+                                 "Position"=double(), "maxDate"=as.Date(character(0))))
           } else {
-            code <- .$genericCode
-            contractN_t <- .$contractN
-            strat <- Strategy$new(.$Strategy)
-  
+            strat <- Strategy$new(row$Strategy)
+
             # position at given points
             rollPoints %>%
-              filter(genericCode == code & contractN == contractN_t) %>%
-              left_join(strat$fun(code, .$Date), by="Date") %>%
-              select(Date, period, genericCode, completeCode, 
-                     expDate, contractN, Position, maxDate)
+              filter(genericCode == row$genericCode & contractN == row$contractN) %>%
+              left_join(strat$fun(row$genericCode, .$Date), by="Date") %>%
+              select(Date, period, completeCode, genericCode,
+                     expDate, Position, maxDate) %>%
+              left_join(row, by="genericCode", copy=TRUE)
           }
-      }) %>% 
-        data.table() %>% 
-        ungroup() %>%
-        left_join(strats %>% select(genericCode, contractN, stratWeight,
-                                 assetWeight, classWeight, Class, sizeEUR,
-                                 Margin,Code), by=c("genericCode", "contractN"))
+      }) %>% as.data.table()
       
       # aggregate positions and reweight
       
-      pos %<>%
-        group_by(Date, completeCode) %>%
-        mutate(sumStrats = sum(stratWeight)) %>%
-        group_by(Date, Class) %>%
-        mutate(nAssets = n_distinct(genericCode),
-               sumAssets =  sum(assetWeight)) %>%
-        mutate(Weight = assetWeight/nAssets*classWeight) %>%
-        filter(sumStrats > 0 & sumAssets > 0) %>%
-        group_by(Date, period, Code, genericCode, contractN, Class,
-                 completeCode, sizeEUR, Margin, Weight, maxDate) %>%
-        summarise(Position = sum(Position*stratWeight/sumStrats)) %>%
-        mutate( rawPosition = Weight*Position,
-                multiple = Weight*Position*self$notional*1000/sizeEUR,
-                rounded = self$rounded*1) %>%
-        mutate( rounded = ifelse(rounded==1, round(multiple-(self$minRound-0.5)*sign(multiple)), multiple)) %>%
-        mutate(netPosition = rounded*sizeEUR/self$notional/1000) %>%
-        mutate(lev = ifelse(!is.null(self$leverage),self$leverage,1)) %>%
-        ungroup()
+      # sum of strategies for each asset
+      pos[,sumStrats := sum(stratWeight), by=.(Date,completeCode)]
+      
+      pos <- pos[assetWeight>0 & classWeight>0,]
+
+      # number of assets for each asset class
+      pos[, `:=`(nAssets=n_distinct(genericCode, contractN),
+                 sumAssets=sum(assetWeight)), by=.(Date, Class)]
+      pos[, Weight := assetWeight/nAssets*classWeight]
+      
+      pos <- pos[sumStrats > 0 & sumAssets > 0]
+      
+      # aggregate positions 
+      pos <- pos[,.(Position = sum(Position*stratWeight/sumStrats)), 
+                 by=.(Date, period, Code, genericCode, contractN, Class,
+                      completeCode, sizeEUR, Margin, Weight, maxDate)]
+      
+      pos[,`:=`(
+        rawPosition = Weight*Position,
+        multiple = Weight*Position*self$notional*1000/sizeEUR,
+        rounded = self$rounded*1
+      )]
+      
+      pos[,rounded := ifelse(rounded==1, round(multiple-(self$minRound-0.5)*sign(multiple)), multiple)]
+      
+      # net position in % of nominal capital
+      pos[,netPosition := rounded*sizeEUR/self$notional/1000]
+      
+      # apply leverage
+      pos[,lev := ifelse(!is.null(self$leverage),self$leverage,1)]
+
+      # pos %<>%
+      #   group_by(Date, completeCode) %>%
+      #   mutate(sumStrats = sum(stratWeight)) %>%
+      #   group_by(Date, Class) %>%
+      #   mutate(nAssets = n_distinct(genericCode),
+      #          sumAssets =  sum(assetWeight)) %>%
+      #   mutate(Weight = assetWeight/nAssets*classWeight) %>%
+      #   filter(sumStrats > 0 & sumAssets > 0) %>%
+      #   group_by(Date, period, Code, genericCode, contractN, Class,
+      #            completeCode, sizeEUR, Margin, Weight, maxDate) %>%
+      #   summarise(Position = sum(Position*stratWeight/sumStrats)) %>%
+      #   mutate( rawPosition = Weight*Position,
+      #           multiple = Weight*Position*self$notional*1000/sizeEUR,
+      #           rounded = self$rounded*1) %>%
+      #   mutate( rounded = ifelse(rounded==1, round(multiple-(self$minRound-0.5)*sign(multiple)), multiple)) %>%
+      #   mutate(netPosition = rounded*sizeEUR/self$notional/1000) %>%
+      #   mutate(lev = ifelse(!is.null(self$leverage),self$leverage,1)) %>%
+      #   ungroup()
       
       private$positions_p <- pos
     },
