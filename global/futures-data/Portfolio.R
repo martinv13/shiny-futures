@@ -85,7 +85,8 @@ Portfolio <- R6Class("Portfolio",
         if (!is.null(outputFn)) {
           outputFn("Period backtesting", ifelse(self$adaptLeverage, 18/totalTime, 8/totalTime))
         }
-        self$periodBacktest_int()
+#        self$periodBacktest_int()
+        self$dailyBacktest_int_old()
       }
       
     },
@@ -310,7 +311,7 @@ Portfolio <- R6Class("Portfolio",
     
     
     # backtest portfolio - daily values
-    dailyBacktest_int = function () {
+    dailyBacktest_int_old = function () {
       
       source <- private$source_p
       pos <- private$positions_p
@@ -358,48 +359,48 @@ Portfolio <- R6Class("Portfolio",
     },
     
     # backtest portfolio - daily values
-    dailyBacktest_int2 = function () {
+    dailyBacktest_int = function () {
       
       source <- private$source_p
       pos <- private$positions_p
       
       # daily portfolio returns
-      dailyReturns <- source %>% select(-period) %>%
-        left_join(pos %>% select(genericCode, Date, period), by=c("Date", "genericCode"))
+      dr <- pos[,.(genericCode, Date, period)][
+        source[,!"period",with=FALSE], 
+        on=c("Date", "genericCode")]
+      
+      # propagate periods  
+      dr <- dr[order(genericCode,Date),
+               period := fill.na(period),
+               by=genericCode][!is.na(period)]
+      
+      # join positions
+      dr <- pos[,.(netPosition, lev, completeCode, period)][
+        dr, on=c("completeCode", "period")][
+        !is.na(netPosition),]
+      
+      # pnl of each position within a period
+      dr[order(completeCode, period, Date),
+         pnl := diff(c(0,exp(cumsum(logReturns))-1)),
+         by=.(completeCode, period)]
 
-      dailyReturns <- dailyReturns[order(genericCode,Date), period := fill.na(period), by=genericCode][!is.na(period)]
+      # pnl per day
+      dr <- dr[order(Date),
+               .("period" = first(period),
+                 "pnl" = sum(pnl*netPosition*lev)),
+               by=Date]
       
-      dailyReturns %<>%
-        left_join(pos %>% select(netPosition, lev, completeCode, period),
-                  by=c("completeCode", "period")) %>%
-        filter(!is.na(netPosition)) %>%
-        
-        group_by(completeCode, period) %>%
-        arrange(Date) %>%
-        mutate(pnl = exp(cumsum(logReturns))-1) %>%
-        
-        group_by(completeCode, period) %>%
-        arrange(Date) %>%
-        mutate(pnl = diff(c(0,pnl))) %>%
-        
-        group_by(Date) %>%
-        summarise(period = first(period),
-                  pnl = sum(pnl*netPosition*lev)) %>%
-        
-        group_by(period) %>%
-        arrange(Date) %>%
-        mutate(pnl = cumsum(pnl)) %>%
-        
-        group_by(period) %>%
-        arrange(Date) %>%
-        mutate(logReturns = diff(c(0, log(pnl+1)))) %>%
-        
-        ungroup() %>%
-        arrange(Date) %>%
-        mutate(Value = exp(cumsum(logReturns)))
+      # cumulate returns (arithmetic)
+      dr[,pnl := cumsum(pnl),by=period]
       
-      private$series_p <- dailyReturns %>% mutate(Returns=exp(logReturns)-1)
+      # compute log returns
+      dr[,logReturns := diff(c(0, log(pnl+1))),by=period]
       
+      # compute portfolio value
+      dr[,`:=`("Value"=exp(cumsum(logReturns)),
+              "Returns"=exp(logReturns)-1)]
+
+      private$series_p <- dr
     },
     
     periodBacktest_int = function() {
