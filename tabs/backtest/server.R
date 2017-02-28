@@ -15,7 +15,8 @@ backtestTab <- function (input, output, session) {
   rv <- reactiveValues(
     list=portfolios$list, 
     series=portfolios$series,
-    positions=portfolios$positions)
+    positions=portfolios$positions,
+    posRange=c(as.Date("2016-01-01"), as.Date(today())))
 
   afterUpdate <- function(){
     rv$series <- portfolios$series
@@ -78,7 +79,9 @@ backtestTab <- function (input, output, session) {
   
   output$positions <- renderRHandsontable({
     if (!is.null(rv$positions)) {
-      rhandsontable(rv$positions %>% arrange(Date, genericCode)) %>%
+      rhandsontable(rv$positions %>% 
+                      filter( Date >= rv$posRange[1] & Date <= rv$posRange[2]) %>%
+                      arrange(desc(Date), genericCode)) %>%
         hot_cols(columnSorting = TRUE,
                  colWidths = 110*c(1,1,.8,1,1,.8,.8,.8),
                  manualColumnResize = TRUE) %>%
@@ -86,6 +89,10 @@ backtestTab <- function (input, output, session) {
         hot_col("period", format="0")
         
     }
+  })
+  
+  observe({
+    rv$posRange <- input$posDateRange
   })
   
   callModule(performanceStats, "portfoliosStats", reactive({rv$series}), selRange)

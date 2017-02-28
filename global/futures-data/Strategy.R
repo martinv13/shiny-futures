@@ -334,12 +334,13 @@ Strategy <- R6Class("Strategy",
         series1 <- Contract$new(genericCode)$price(contractNumber = 1)$series
         series2 <- Contract$new(genericCode)$price(contractNumber = 2)$series
         
-        series1 %>%
-          filter(Date %in% dates) %>%
-          transmute(Date=Date, front=Value, frontExp=expDate) %>%
+        series1 <- series1[data.table(Date=dates-1), on="Date", roll=TRUE]
+        series2 <- series2[data.table(Date=dates-1), on="Date", roll=TRUE]
+
+      pos<-  series1 %>%
+          transmute(Date=Date+1, front=Value, frontExp=expDate) %>%
           left_join(series2 %>% 
-                      filter(Date %in% dates) %>%
-                      transmute(Date=Date, def=Value, defExp=expDate),
+                      transmute(Date=Date+1, def=Value, defExp=expDate),
                     by="Date") %>%
           mutate(carry = log(front)-log(def)) %>%
           mutate(carry = exp(carry*365/as.numeric(defExp-frontExp))-1) %>%

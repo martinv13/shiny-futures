@@ -154,8 +154,18 @@ Portfolio <- R6Class("Portfolio",
         group_by(period, Date) %>%
         mutate(nbContracts = n()) %>%
         group_by(period) %>%
-        filter(nbContracts == max(nbContracts)) %>%
-        filter(Date == min(Date)) %>%
+        filter(nbContracts == max(nbContracts))
+      
+      if (rollPoints[period == maxPer, n_distinct(Date)] > 10) {
+        rollPoints %<>%
+          filter((Date == min(Date)) | (Date == max(Date) & period == maxPer))
+        rollPoints[Date==max(Date), `:=`(period=period+1,Date=Date+1)]
+      } else {
+        rollPoints %<>%
+          filter(Date == min(Date))
+      }
+
+      rollPoints %<>%
         full_join(strats %>% distinct(genericCode, contractN), by="genericCode") %>%
         group_by(genericCode, period, contractN) %>%
         arrange(expDate) %>%

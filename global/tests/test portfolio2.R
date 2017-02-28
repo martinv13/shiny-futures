@@ -40,4 +40,5 @@ private = list(
 )
 rollOn <- 1
 self <- list(notional=100, rounded=FALSE)
+prPos=NULL
 
