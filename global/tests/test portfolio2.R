@@ -41,4 +41,17 @@ private = list(
 rollOn <- 1
 self <- list(notional=100, rounded=FALSE)
 prPos=NULL
+private = list(
+  name_p = "testPortfolio",
+  fd = futuresData,
+  db = db,
+  rollDates = 1,
+  classes_df = classes_df,
+  assets_df = assets_df,
+  strats_df = strats_df,
+  results = NULL,
+  lastBacktest = NULL,
+  lastBacktestFreq = NULL,
+  series_p = NULL
+)
 

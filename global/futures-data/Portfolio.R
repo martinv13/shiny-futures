@@ -1,6 +1,10 @@
 
 # portfolio backtesting
 
+classes_df <- NULL
+assets_df <- NULL
+strats_df <- NULL
+
 Portfolio <- R6Class("Portfolio",
 
 ###################
@@ -88,7 +92,9 @@ Portfolio <- R6Class("Portfolio",
 #        self$periodBacktest_int()
         self$dailyBacktest_int_old()
       }
-      
+      classes_df <<- private$classes_df
+      assets_df <<- private$assets_df
+      strats_df <<- private$strats_df
     },
     
     # compute positions
@@ -132,10 +138,13 @@ Portfolio <- R6Class("Portfolio",
         as.data.table()
       
       # roll periods
-      source <- futuresData$data %>% 
-        filter(genericCode %in% (strats %>% distinct(genericCode))$genericCode) %>%
-        mutate(period = (year(Date)-1970)*12 + month(Date) + (mday(Date)>=rollOn)*1)
-      
+      # keep dates with max number of contracts
+      source <- futuresData$data[genericCode %in% unique(strats$genericCode)] %>%
+        .[,period := (year(Date)-1970)*12 + month(Date) + (mday(Date)>=rollOn)*1] %>%
+        .[,ncontracts:=n_distinct(genericCode),by=Date] %>%
+        .[order(Date),cncontracts:=cummax(ncontracts)] %>%
+        .[year(Date)<2017 | cncontracts == ncontracts,]
+        
       private$source_p <- source
       
       # roll dates for each genericCode
@@ -156,7 +165,7 @@ Portfolio <- R6Class("Portfolio",
         group_by(period) %>%
         filter(nbContracts == max(nbContracts))
       
-      if (rollPoints[period == maxPer, n_distinct(Date)] > 10) {
+      if (rollPoints[period == maxPer, max(Date)-min(Date)] > 10) {
         rollPoints %<>%
           filter((Date == min(Date)) | (Date == max(Date) & period == maxPer))
         rollPoints[Date==max(Date), `:=`(period=period+1,Date=Date+1)]
