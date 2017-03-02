@@ -21,8 +21,11 @@ Portfolio <- R6Class("Portfolio",
         if (!is.null(values$assetsClasses) && !is.null(values$assets) && 
             !is.null(values$strategies)) {
           private$classes_df <- data.table(values$assetsClasses) %>% select(Class, Weight)
+          private$classes_df$Weight <- as.numeric(private$classes_df$Weight)
           private$assets_df <- data.table(values$assets) %>% select(Code, `Contract #`, Weight)
+          private$assets_df$Weight <- as.numeric(private$assets_df$Weight)
           private$strats_df <- data.table(values$strategies) %>% select(Code, Strategy, Weight)
+          private$strats_df$Weight <- as.numeric(private$strats_df$Weight)
         }
       }
     },
@@ -610,6 +613,7 @@ Portfolio <- R6Class("Portfolio",
     # assets classes
     assetsClasses = function (df = NULL) {
       if (!is.null(df)) {
+        print(df)
         private$classes_df <- df %>% 
           group_by(Class) %>%
           summarise(Weight=sum(Weight, na.rm=TRUE)) %>%

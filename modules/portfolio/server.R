@@ -38,7 +38,7 @@ portfolio <- function (input, output, session, p, portfolios, afterUpdate, after
   observe({
     if (!is.null(input$strats)) {
       if (initStrat) {
-        newStrats <- hot_to_r(input$strats)
+        newStrats <- setDT(hot_to_r(input$strats))
         p$strategies <- newStrats
         newStrats[is.na(Strategy),Strategy:="long"]
         newStrats[is.na(Weight),Weight:=1]
@@ -65,7 +65,7 @@ portfolio <- function (input, output, session, p, portfolios, afterUpdate, after
   observe({
     if (!is.null(input$assets)) {
       if (initAssets) {
-        p$assets <- hot_to_r(input$assets)
+        p$assets <- setDT(hot_to_r(input$assets))
         values$strats <- p$strategies
         values$assets <- p$assets
         values$classes <- p$assetsClasses
@@ -85,7 +85,8 @@ portfolio <- function (input, output, session, p, portfolios, afterUpdate, after
   observe({
     if (!is.null(input$classes)) {
       if (initClasses) {
-        p$assetsClasses <- hot_to_r(input$classes)
+        temp <- setDT(hot_to_r(input$classes))
+        p$assetsClasses <- temp
         values$strats <- p$strategies
         values$assets <- p$assets
         values$classes <- p$assetsClasses
