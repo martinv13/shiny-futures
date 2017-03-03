@@ -1,6 +1,5 @@
 
 # collection of contract data series
-
 Contracts <- R6Class("Contracts",
   
   public = list(

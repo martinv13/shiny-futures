@@ -1,6 +1,5 @@
 
 # multiple series to display
-
 MultiSeries <- R6Class("MultiSeries",
   
   public = list(
@@ -11,7 +10,6 @@ MultiSeries <- R6Class("MultiSeries",
       concat <- data %>%
         bind_rows(.id="series")
       
-
       private$series_p <- concat %>%
         select(series, Date, period, Value) %>%
         spread(series, Value)
