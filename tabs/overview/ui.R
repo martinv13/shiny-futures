@@ -19,8 +19,13 @@ overviewTabUI <- function (id, label = "Overview") {
                       tags$div(style="margin-top:10px",
                                textOutput(ns("rangeCalc"), inline="TRUE")))),
              fluidRow(
-               column(width=4, rHandsontableOutput(ns("codesList"))),
-               column(width=8, plotOutput(ns("correlPlot")))
+               column(width=4, rHandsontableOutput(ns("codesList")),
+                      downloadButton(ns("dlData"))),
+               column(width=8, 
+                      fluidRow(plotOutput(ns("correlPlot"),height=800, width=1000)),
+                      fluidRow(plotOutput(ns("weightPlot"))),
+                      uiOutput(ns("weightPlotControls")
+                      ))
              )
            )
   

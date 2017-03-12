@@ -10,7 +10,7 @@ overviewTab <- function (input, output, session) {
   
   observe({
     rv$codes <- futuresData$tickersReactive() %>%
-      select( start, Type, `IB Ticker`, RefNum) %>%
+      select(`IB Ticker`, start, Type, RefNum, sizeEUR) %>%
       filter(!is.na(RefNum) & RefNum != "NA" & RefNum != "")
     rv$correl <- NULL
     rv$lastRange <- NULL
@@ -21,9 +21,10 @@ overviewTab <- function (input, output, session) {
     if (!is.null(dat)) {
       rtable <- rhandsontable(dat, readOnly = FALSE) %>%
         hot_table(contextMenu = FALSE) %>%
-        hot_cols(columnSorting = TRUE) %>%
+        hot_cols(columnSorting = TRUE, fixedColumnsLeft = 1) %>%
         hot_col(1:dim(dat)[2], readOnly = TRUE) %>%
-        hot_col("RefNum", format="0")
+        hot_col("RefNum", format="0") %>%
+        hot_col("sizeEUR", format="0,0")
       if (!is.null(isolate(rv$lastRange))) {
         rangeStart <- format(isolate(rv$lastRange)[1], "%Y%m%d")
         rendererText <- paste0("
@@ -36,15 +37,17 @@ overviewTab <- function (input, output, session) {
           hot_col("start", renderer=rendererText)
       }
       if ("StdDev" %in% colnames(dat)) rtable %<>% 
-        hot_col(c("StdDev","1/V"), format="0%")
-      if ("1/V Class" %in% colnames(dat)) rtable %<>% 
-        hot_col("1/V Class", format="0%")
-      if ("ERC" %in% colnames(dat)) rtable %<>% 
-        hot_col("ERC", format="0%")
-      
+        hot_col(c("StdDev","StdDev0","StdDev0Down","MAD",
+                  "MAD0","MAD0Down","VaR"), format="0%") %>%
+        hot_col(c("1/StdDev","1/StdDev0","1/StdDev0Down","1/MAD",
+                  "1/MAD0","1/MAD0Down","1/VaR","ERC"), format="0.00")
       rtable
     }
   })
+  
+  cols <- c("StdDev","StdDev0","StdDev0Down","MAD",
+            "MAD0","MAD0Down","VaR","1/StdDev","1/StdDev0",
+            "1/StdDev0Down","1/MAD","1/MAD0","1/MAD0Down","1/VaR","ERC")
   
   output$correlPlot <- renderPlot({
     if (!is.null(rv$correl)) {
@@ -58,6 +61,38 @@ overviewTab <- function (input, output, session) {
         theme(axis.text.x = element_text(angle = 45, hjust = 1))
     }
   },width = 1000, height = 800)
+  
+  output$weightPlotControls <- renderUI({
+    if (!is.null(rv$codes) && "StdDev" %in% colnames(rv$codes)) {
+      fluidRow(
+        column(width = 6,
+               selectInput(ns("selWeightSeries"),
+                           "Select series", cols, cols,
+                           multiple = TRUE)),
+        column(width = 6,
+               selectInput(ns("selContracts"),
+                           "Select contracts", rv$codes[,`IB Ticker`],rv$codes[,`IB Ticker`],
+                           multiple = TRUE))
+      )
+    }
+  })
+  
+  output$weightPlot <- renderPlot({
+    if (!is.null(rv$codes) && "StdDev" %in% colnames(rv$codes)) {
+      melt(rv$codes[`IB Ticker` %in% input$selContracts,][,
+                     c("IB Ticker",input$selWeightSeries),with=FALSE], 
+           id.vars = c("IB Ticker"), mesure.vars=input$selWeightSeries) %>%
+      ggplot(aes(y=value, x=`IB Ticker`,fill=variable)) +
+        geom_bar(stat="identity", position=position_dodge())
+    }
+  })
+  
+  output$dlData <- downloadHandler(
+    filename = "weights.csv",
+    content = function(file) {
+      write.table(isolate(rv$codes), file, sep=";", dec=",", row.names = FALSE)
+    }
+  )
   
   observeEvent(input$compute, {
     out <- futuresData$correlations(range=input$dateRange)

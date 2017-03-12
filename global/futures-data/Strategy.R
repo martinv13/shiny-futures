@@ -75,7 +75,7 @@ Strategy <- R6Class("Strategy",
             dbDBI %>% db_drop_table("temp_cache_quer")
             
             if (sum(is.na(cached$Position)>0)) {
-              if (self$name %in% c("carryMA")) {
+              if (self$name %in% c("carryMA","carryR")) {
                 missings <- cached
                 res <- dbSendQuery(db$localDBI, 
                                    paste0("delete from strats_cache where genericCode=\"",

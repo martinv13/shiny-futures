@@ -134,7 +134,8 @@ FuturesData <- R6Class("FuturesData",
                                                             Type,
                                                            `IB Ticker`,
                                                             RefNum,
-                                                            start)]
+                                                            start,
+                                                           sizeEUR)]
       # join contracts data and codes
       data <- self$data
       data <- data[codes[,.(genericCode, Type, RefNum, `IB Ticker`)],
@@ -152,25 +153,42 @@ FuturesData <- R6Class("FuturesData",
       
       stdDev <- codes
       # compute stddev for each contract
-      dataStdDev <- data[,.(StdDev=as.numeric(StdDev.annualized(
-        exp(logReturns)-1, scale=252))), 
-        by=genericCode] %>%
-        .[,`1/V`:=ifelse(is.na(StdDev),NA,1/StdDev)] %>%
-        .[,`1/V`:=`1/V`/mean(`1/V`, na.rm=TRUE)]
+      dataStdDev <- data[,.(StdDev = sd(logReturns)*sqrt(252),
+                            StdDev0 = sqrt(mean(logReturns^2)*252),
+                            StdDev0Down = sqrt(mean(logReturns[logReturns<0]^2)*252),
+                            MAD =  mad(logReturns)*sqrt(252),
+                            MAD0 =  mad(logReturns, center = 0)*sqrt(252),
+                            MAD0Down =  mad(logReturns[logReturns<0], center = 0)*sqrt(252),
+                            VaR = -as.numeric(VaR(exp(logReturns)-1))), 
+                        by=genericCode] %>%
+        .[,`:=`(`1/StdDev`=ifelse(is.na(StdDev),NA,1/StdDev),
+                `1/StdDev0`=ifelse(is.na(StdDev0),NA,1/StdDev0),
+                `1/StdDev0Down`=ifelse(is.na(StdDev0Down),NA,1/StdDev0Down),
+                `1/MAD`=ifelse(is.na(MAD),NA,1/MAD),
+                `1/MAD0`=ifelse(is.na(MAD0),NA,1/MAD0),
+                `1/MAD0Down`=ifelse(is.na(MAD0Down),NA,1/MAD0Down),
+                `1/VaR`=ifelse(is.na(VaR),NA,1/VaR))] %>%
+        .[,`:=`(`1/StdDev`=`1/StdDev`/mean(`1/StdDev`, na.rm=TRUE),
+                `1/StdDev0`=`1/StdDev0`/mean(`1/StdDev0`, na.rm=TRUE),
+                `1/StdDev0Down`=`1/StdDev0Down`/mean(`1/StdDev0Down`, na.rm=TRUE),
+                `1/MAD`=`1/MAD`/mean(`1/MAD`, na.rm=TRUE),
+                `1/MAD0`=`1/MAD0`/mean(`1/MAD0`, na.rm=TRUE),
+                `1/MAD0Down`=`1/MAD0Down`/mean(`1/MAD0Down`, na.rm=TRUE),
+                `1/VaR`=`1/VaR`/mean(`1/VaR`, na.rm=TRUE))]
 
       stdDev %<>% left_join(dataStdDev, by="genericCode")
 
       dataStdDev <- codes[dataStdDev, on="genericCode"]
-      dataStdDev[, assetWeight := `1/V`/sum(`1/V`, na.rm=TRUE), by=Type]
-      stdDevClass <- data[dataStdDev, on="genericCode"] %>%
-        .[, classLogRet := log(sum((exp(logReturns)-1)*assetWeight, na.rm=TRUE)+1), by=.(Date,Type)] %>%
-        .[, .(classWeight=1/as.numeric(StdDev.annualized(
-                      exp(classLogRet)-1, scale=252))),
-          by=Type]
-      dataStdDev <- stdDevClass[dataStdDev, on="Type"]
-      dataStdDev[,totalWeight:=classWeight*assetWeight]
-      dataStdDev[,`1/V Class`:=totalWeight/mean(totalWeight)]
-      stdDev %<>% left_join(dataStdDev[,.(`IB Ticker`,`1/V Class`)], by="IB Ticker")
+      # dataStdDev[, assetWeight := `1/V`/sum(`1/V`, na.rm=TRUE), by=Type]
+      # stdDevClass <- data[dataStdDev, on="genericCode"] %>%
+      #   .[, classLogRet := log(sum((exp(logReturns)-1)*assetWeight, na.rm=TRUE)+1), by=.(Date,Type)] %>%
+      #   .[, .(classWeight=1/as.numeric(StdDev.annualized(
+      #                 exp(classLogRet)-1, scale=252))),
+      #     by=Type]
+      # dataStdDev <- stdDevClass[dataStdDev, on="Type"]
+      # dataStdDev[,totalWeight:=classWeight*assetWeight]
+      # dataStdDev[,`1/V Class`:=totalWeight/mean(totalWeight)]
+      # stdDev %<>% left_join(dataStdDev[,.(`IB Ticker`,`1/V Class`)], by="IB Ticker")
 
       # compute indexes to reorder cols
       norder <- codes[genericCode%in%data$genericCode] %>%
@@ -221,7 +239,12 @@ FuturesData <- R6Class("FuturesData",
                         ERC = erc/mean(erc))
       stdDev %<>% left_join(erc, by="IB Ticker")
 
-      list(stdDev=stdDev %>% arrange(Type) %>% select(start, Type,`IB Ticker`,RefNum,StdDev,`1/V`,`1/V Class`,ERC),
+      list(stdDev=stdDev %>% arrange(Type) %>% 
+             select(`IB Ticker`,start, Type,RefNum,sizeEUR,
+                    StdDev,StdDev0,StdDev0Down,
+                    MAD,MAD0,MAD0Down,VaR,
+                    `1/StdDev`,`1/StdDev0`,`1/StdDev0Down`,
+                    `1/MAD`,`1/MAD0`,`1/MAD0Down`,`1/VaR`,ERC),
            correl = corr)
     },
     
