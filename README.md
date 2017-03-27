@@ -10,12 +10,12 @@ The (soft) roadmap is to enable user:
 Computing is mostly based on data.table / dplyr. Dygraphs is used for rendering. A Sqlite DB holds the data.
 
 ### Update data
-This tab lists available contracts and manage downloads from Quandl.
+This tab lists available contracts and manages downloads from Quandl.
 
 [![Update tab](/screenshots/update-s.png)](/screenshots/update.png)
 
 ### Overview
-This tab display main contracts features (volatility, correlation,...).
+This tab displays main contracts features (volatility, correlation matrix, ERC weights,...).
 
 [![Overview tab](/screenshots/overview-s.png)](/screenshots/overview.png)
 
