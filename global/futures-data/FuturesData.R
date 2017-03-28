@@ -354,15 +354,25 @@ FuturesData <- R6Class("FuturesData",
           filter(row_number(expDate)==1) %>%
           select(genericCode, lastPrice, start, nbContracts, lastFetch)
         
-        temp <- tickers_db %>% 
-          collect() %>% data.table() %>%
-          mutate(genericCode = `Quandl Code`) %>%
-          left_join(fetch_data, by="genericCode") %>%
-          select(-genericCode) %>%
-          left_join(fXData$data%>%group_by(shortName)%>%
-                      filter(Date==max(Date))%>%mutate(Currency=codeTo), by="Currency") %>%
-          mutate(Value = ifelse(Currency=="EUR",1,Value)) %>%
-          mutate(sizeEUR = Multiplier*lastPrice/Value)
+        if (!is.null(fXData$data)) {
+          temp <- tickers_db %>% 
+            collect() %>% data.table() %>%
+            mutate(genericCode = `Quandl Code`) %>%
+            left_join(fetch_data, by="genericCode") %>%
+            select(-genericCode) %>%
+            left_join(fXData$data%>%group_by(shortName)%>%
+                        filter(Date==max(Date))%>%mutate(Currency=codeTo), by="Currency") %>%
+            mutate(Value = ifelse(Currency=="EUR",1,Value)) %>%
+            mutate(sizeEUR = Multiplier*lastPrice/Value)
+        } else {
+          temp <- tickers_db %>% 
+            collect() %>% data.table() %>%
+            mutate(genericCode = `Quandl Code`) %>%
+            left_join(fetch_data, by="genericCode") %>%
+            select(-genericCode) %>%
+            mutate(Value = NA) %>%
+            mutate(sizeEUR = NA)        
+        }
         
         if(file.exists("local/margins.csv")) {
           marginData <- fread("local/margins.csv", dec=",", sep=";")%>%
