@@ -12,22 +12,22 @@ Computing is mostly based on data.table / dplyr. Dygraphs is used for rendering.
 ### Update data
 This tab lists available contracts and manages downloads from Quandl.
 
-[![Update tab](/screenshots/update-s.png)](/screenshots/update.png)
+[![Update tab](/screenshots/update-s.png)](https://raw.githubusercontent.com/martinv13/Shiny-Futures/master/screenshots/update.png)
 
 ### Overview
 This tab displays main contracts features (volatility, correlation matrix, ERC weights,...).
 
-[![Overview tab](/screenshots/overview-s.png)](/screenshots/overview.png)
+[![Overview tab](/screenshots/overview-s.png)](https://raw.githubusercontent.com/martinv13/Shiny-Futures/master/screenshots/overview.png)
 
 ### Explore
 This tab allows displaying individual contracts and strategies, with custom roll rules.
 
-[![Explore tab](/screenshots/explore-s.png)](/screenshots/explore.png)
+[![Explore tab](/screenshots/explore-s.png)](https://raw.githubusercontent.com/martinv13/Shiny-Futures/master/screenshots/explore.png)
 
 ### Backtest
 This tab allows backtesting and comparing multiple portfolios of contracts and strategies.
 
-[![Backtest tab](/screenshots/backtest-s.png)](/screenshots/backtest.png)
+[![Backtest tab](/screenshots/backtest-s.png)](https://raw.githubusercontent.com/martinv13/Shiny-Futures/master/screenshots/backtest.png)
 
 ### Give it a try
 
